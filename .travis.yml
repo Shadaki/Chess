@@ -1,8 +1,0 @@
-dist: bionic
-arch:
-  - amd64
-language: python
-python:
-    - "3.8"
-script:
-    python3 chess.py < testing.txt
