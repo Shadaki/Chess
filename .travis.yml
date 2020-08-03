@@ -5,4 +5,4 @@ language: python
 python:
     - "3.8"
 script:
-    python chess.py < testing.txt
+    python3 chess.py < testing.txt
