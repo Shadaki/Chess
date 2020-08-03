@@ -5,7 +5,7 @@ board = [["r", "n", "b", "q", "k", "b", "n", "r"],
          [".", ".", ".", ".", ".", ".", ".", "."],
          [".", ".", ".", ".", ".", ".", ".", "."],
          ["P", "P", "P", "P", "P", "P", "P", "P"],
-         ["R", "N", "B", "Q", "K", "B", "N", "R"]]
+         ["R", "N", "B", "Q", "K", ".", ".", "R"]]
 turn = "white"
 end = False
 possibleMoves = {"k": [["notTeammate", x, y] for x in range(-1, 2) for y in range(-1, 2) if [x, y] != [0, 0]] + [["canCastle/kingside", 0, 2], ["canCastle/queenside", 0, -2]],
@@ -18,7 +18,8 @@ possibleMoves = {"k": [["notTeammate", x, y] for x in range(-1, 2) for y in rang
 
 whiteKing = [7, 4]
 blackKing = [0, 4]
-whiteKingCheck, blackKingCheck = False, False
+whiteKingCheck, blackKingCheck = True, False
+alreadyMoved = {"a1":False, "e1":False, "h1":False, "a8":False, "e8":False, "h8":False}
 
 def chessToList(coord):
     x = 8 - int(coord[1])
@@ -26,15 +27,15 @@ def chessToList(coord):
     return x, y
 
 
-def isCheck(xKing, yKing, color):
+def isCheck(xSquare, ySquare, color):
     global board, possibleMoves
     check = False
-    king = board[xKing][yKing]
+    piece = board[xSquare][ySquare]
     for x in range(8):
         for y in range(8):
             square = board[x][y]
             if (color == "black" and square.isupper()) or (color == "white" and square.islower()):
-                if moveAllowed(x, y, xKing, yKing, square, king):
+                if moveAllowed(x, y, xSquare, ySquare, square, piece):
                     return True
     return False
 
@@ -80,7 +81,7 @@ def enemyOrEnPassant(_, __, xFinish, yFinish):
     return False
 
 def onRow(xStart, yStart, _, __, nRow):
-    if 8 - xStart == nRow:
+    if 8 - xStart == int(nRow):
         return True
     return False
 
@@ -97,6 +98,17 @@ def isBlack(xStart, yStart, _, __):
     return False
 
 def canCastle(xStart, yStart, _, __, side):
+    global board, alreadyMoved
+    if board[xStart][yStart] == "K" and not alreadyMoved["e1"] and not isCheck(7,4,"white"):
+        if side == "kingside" and not alreadyMoved["h1"] and not (isCheck(7,5,"white") or isCheck(7,6,"white")):
+            return True
+        if side == "queenside" and not alreadyMoved["a1"] and True not in [isCheck(7,y,"white") for y in range(1,4)]:
+            return True
+    elif board[xStart][yStart] == "k" and not alreadyMoved["e8"] and not isCheck(0,4,"black"):
+        if side == "kingside" and not alreadyMoved["h8"] and not (isCheck(0,5,"white") or isCheck(0,6,"white")):
+            return True
+        if side == "queenside" and not alreadyMoved["a8"] and True not in [isCheck(0,y,"white") for y in range(1,4)]:
+            return True
     return False
 
 
@@ -123,26 +135,23 @@ def moveAllowed(xStart, yStart, xFinish, yFinish, pieceMoving, pieceEaten):
         condition = condition.split("/")
         toExec = "" + condition[0] + "(xStart,yStart,xFinish,yFinish"
         try:
-            toExec += "," + condition[1] + ")"
+            toExec += ",\"" + condition[1] + "\")"
         except:
             toExec += ")"
         functionAnswers.append(eval(toExec))
     if False in functionAnswers:
         return False
     
-    if (whiteKingCheck and pieceMoving) != "K" or (blackKingCheck and pieceMoving != "k"):
+    if (isCheck(whiteKing[0], whiteKing[1], "white") and turn == "white") or \
+    (isCheck(blackKing[0], blackKing[1], "black") and turn == "black"):
         return False
     
-    wrong=False
     makeMove(xStart, yStart, xFinish, yFinish, pieceMoving)
-    if isCheck(whiteKing[0], whiteKing[1], "white") and turn == "white":
-        whiteKingCheck = True
-    elif isCheck(blackKing[0], blackKing[1], "black") and turn == "black":
-        blackKingCheck = True
-    elif isCheck(whiteKing[0], whiteKing[1], "white") and turn == "black" or isCheck(blackKing[0], blackKing[1], "black") and turn == "black":
-        wrong = True
+    if isCheck(whiteKing[0], whiteKing[1], "white") and turn == "black" or \
+    isCheck(blackKing[0], blackKing[1], "black") and turn == "black":
+        undoMove(xStart, yStart, xFinish, yFinish, pieceMoving, pieceEaten)
+        return False
     undoMove(xStart, yStart, xFinish, yFinish, pieceMoving, pieceEaten)
-    if wrong: return False
     
     return True
 
@@ -154,6 +163,11 @@ def makeMove(xStart, yStart, xFinish, yFinish, pieceMoving):
         whiteKing = [xFinish, yFinish]
     elif pieceMoving == "k":
         blackKing = [xFinish, yFinish]
+    if abs(yStart - yFinish) == 2 and pieceMoving.lower() == "k":
+        if [xFinish, yFinish] == [7, 2]: makeMove(7, 0, 7, 3, "R")
+        elif [xFinish, yFinish] == [7, 6]: makeMove(7, 7, 7, 5, "R")
+        elif [xFinish, yFinish] == [0, 2]: makeMove(0, 0, 0, 3, "R")
+        elif [xFinish, yFinish] == [0, 6]: makeMove(0, 7, 0, 5, "R")
     changeTurn()
 
 def undoMove(xStart, yStart, xFinish, yFinish, pieceMoving, pieceEaten):
@@ -187,6 +201,8 @@ while True:
     pieceEaten = board[xFinish][yFinish]
     if moveAllowed(xStart, yStart, xFinish, yFinish, pieceMoving, pieceEaten):
         makeMove(xStart, yStart, xFinish, yFinish, pieceMoving)
+        if start in alreadyMoved:
+            alreadyMoved[start] = True
         changeTurn()
     else:
         print("Your move isn't correct!")
